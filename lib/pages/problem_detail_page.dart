@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/supabase_service.dart';
+import '../themes/app_theme.dart';
 
 class ProblemDetailPage extends StatefulWidget {
   final String problemId;
@@ -115,61 +117,275 @@ class _ProblemDetailPageState extends State<ProblemDetailPage> {
     });
   }
 
+  Widget _buildInfoSection(String title, String content) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppTheme.subtitleColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: const TextStyle(
+              color: AppTheme.textColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    Color chipColor;
+    IconData statusIcon;
+
+    switch (status.toLowerCase()) {
+      case 'pending':
+        chipColor = Colors.orange;
+        statusIcon = Icons.pending;
+        break;
+      case 'processing':
+        chipColor = Colors.blue;
+        statusIcon = Icons.running_with_errors;
+        break;
+      case 'done':
+        chipColor = Colors.green;
+        statusIcon = Icons.check_circle;
+        break;
+      default:
+        chipColor = Colors.grey;
+        statusIcon = Icons.help_outline;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: chipColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: chipColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(statusIcon, size: 18, color: chipColor),
+          const SizedBox(width: 6),
+          Text(
+            status.toUpperCase(),
+            style: TextStyle(
+              color: chipColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Problem Details')),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _problemDetails == null
-              ? const Center(child: Text("Error loading problem details."))
-              : Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Category: ${_problemDetails!['category'] ?? 'N/A'}',
-                          style: const TextStyle(fontSize: 18)),
-                      const SizedBox(height: 10),
-                      Text(
-                          'Description: ${_problemDetails!['description'] ?? 'No Description'}',
-                          style: const TextStyle(fontSize: 16)),
-                      const SizedBox(height: 20),
-                      Text('Status: ${_problemDetails!['status'] ?? 'pending'}',
-                          style: const TextStyle(fontSize: 16)),
-                      if (_problemDetails!['solver'] != null)
-                        Text(
-                            'Solver ID: ${_problemDetails!['solver'].toString()}', // Modified line
-                            style: const TextStyle(fontSize: 16)),
-                      const Spacer(), // Push buttons to bottom
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return Theme(
+      data: AppTheme.lightBlueTheme,
+      child: Scaffold(
+        appBar: AppBar(
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text(
+            'Problem Details',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          elevation: 0,
+        ),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppTheme.backgroundColor,
+                Colors.white.withOpacity(0.95),
+              ],
+            ),
+          ),
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppTheme.accentColor))
+              : _problemDetails == null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          if (_problemDetails!['status'] == 'pending')
-                            ElevatedButton(
-                              onPressed: _setProblemToProcessing,
-                              child: const Text('Solve'),
+                          const Icon(
+                            Icons.error_outline,
+                            size: 64,
+                            color: AppTheme.subtitleColor,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            "Error loading problem details",
+                            style: TextStyle(
+                              color: AppTheme.subtitleColor,
+                              fontSize: 18,
                             ),
-                          if (_problemDetails!['status'] == 'processing' &&
-                              _problemDetails!['solver'] == _currentUserId)
-                            ElevatedButton(
-                              onPressed: _setProblemToDone,
-                              child: const Text('Solved'),
+                          ),
+                          const SizedBox(height: 24),
+                          ElevatedButton(
+                            onPressed: _loadProblemDetails,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildStatusChip(
+                              _problemDetails!['status'] ?? 'pending'),
+                          const SizedBox(height: 24),
+                          _buildInfoSection(
+                            'CATEGORY',
+                            _problemDetails!['category'] ?? 'N/A',
+                          ),
+                          _buildInfoSection(
+                            'DESCRIPTION',
+                            _problemDetails!['description'] ?? 'No Description',
+                          ),
+                          if (_problemDetails!['solver'] != null)
+                            _buildInfoSection(
+                              'SOLVER ID',
+                              _problemDetails!['solver'].toString(),
                             ),
-                          if (_problemDetails!['status'] == 'processing' &&
-                              _problemDetails!['solver'] == _currentUserId)
-                            ElevatedButton(
-                              onPressed: _setProblemToPending,
-                              child: const Text('Leave'),
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      Colors.orange), // Example styling
+                          if (_problemDetails!['created_at'] != null)
+                            _buildInfoSection(
+                              'CREATED AT',
+                              DateFormat('MMM d, yyyy hh:mm a').format(
+                                  DateTime.parse(
+                                      _problemDetails!['created_at'])),
+                            ),
+                          const SizedBox(height: 32),
+                          if (_problemDetails!['status'] == 'pending' ||
+                              _problemDetails!['status'] == 'processing')
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: AppTheme.surfaceColor,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withOpacity(0.1),
+                                    spreadRadius: 1,
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (_problemDetails!['status'] == 'pending')
+                                    ElevatedButton(
+                                      onPressed: _setProblemToProcessing,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.primaryColor,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'SOLVE THIS PROBLEM',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  if (_problemDetails!['status'] ==
+                                          'processing' &&
+                                      _problemDetails!['solver'] ==
+                                          _currentUserId) ...[
+                                    ElevatedButton(
+                                      onPressed: _setProblemToDone,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'MARK AS SOLVED',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ElevatedButton(
+                                      onPressed: _setProblemToPending,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          side: const BorderSide(
+                                              color: Colors.orange),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'LEAVE PROBLEM',
+                                        style: TextStyle(
+                                          color: Colors.orange,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+        ),
+      ),
     );
   }
 }
